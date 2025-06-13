@@ -1,0 +1,179 @@
+
+
+services:
+  userservice:
+    build:
+      context: ./userservice
+      dockerfile: Dockerfile
+    image: userservice
+    container_name: laravel-userservice
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./userservice:/var/www/html
+    networks:
+      - laravel-net
+    ports:
+      - 9070:80
+    environment:
+      DB_HOST: user-db
+      DB_DATABASE: db_user_iae
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      QUEUE_CONNECTION: database
+    depends_on:
+      - user-db
+    command: >
+      sh -c "php artisan migrate --force && apache2-foreground"
+
+  user-db:
+    image: mysql:8.0
+    container_name: mysql-user-db
+    environment:
+      MYSQL_DATABASE: db_user_iae
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql-user:/var/lib/mysql
+    networks:
+      - laravel-net
+
+  productservice:
+    build:
+      context: ./productservice
+      dockerfile: Dockerfile
+    image: productservice
+    container_name: laravel-productservice
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./productservice:/var/www/html
+    networks:
+      - laravel-net
+    ports:
+      - 9071:80
+    environment:
+      DB_HOST: product-db
+      DB_DATABASE: db_product_iae
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      QUEUE_CONNECTION: rabbitmq
+    depends_on:
+      - product-db
+      - userservice
+    command: >
+      sh -c "php artisan migrate --force && apache2-foreground"
+      
+  product-db:
+    image: mysql:8.0
+    container_name: mysql-product-db
+    environment:
+      MYSQL_DATABASE: db_product_iae
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql-product:/var/lib/mysql
+    networks:
+      - laravel-net
+
+  orderservice:
+    build:
+      context: ./orderservice
+      dockerfile: Dockerfile
+    image: orderservice
+    container_name: laravel-orderservice
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./orderservice:/var/www/html
+    networks:
+      - laravel-net
+    ports:
+      - 9072:80
+    environment:
+      DB_HOST: order-db
+      DB_DATABASE: db_order_iae
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      QUEUE_CONNECTION: rabbitmq
+    depends_on:
+      - order-db
+      - userservice
+      - productservice
+    command: >
+      sh -c "php artisan migrate --force && apache2-foreground"
+
+  order-db:
+    image: mysql:8.0
+    container_name: mysql-order-db
+    environment:
+      MYSQL_DATABASE: db_order_iae
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql-order:/var/lib/mysql
+    networks:
+      - laravel-net
+
+  phpmyadmin-userservice:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-userservice
+    ports:
+      - 9080:80
+    environment:
+      PMA_HOST: user-db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    depends_on:
+      - user-db
+    networks:
+      - laravel-net
+
+  phpmyadmin-product:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-product
+    ports:
+      - 9081:80
+    environment:
+      PMA_HOST: product-db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    depends_on:
+      - product-db
+    networks:
+      - laravel-net
+
+  phpmyadmin-order:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-order
+    ports:
+      - 9082:80
+    environment:
+      PMA_HOST: order-db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    depends_on:
+      - order-db
+    networks:
+      - laravel-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - laravel-net
+
+networks:
+  laravel-net:
+
+
+volumes:
+  mysql-user:
+  mysql-product:
+  mysql-order:
